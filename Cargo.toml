@@ -2,7 +2,7 @@
 members = ["packages/*", "contracts/*"]
 
 [workspace.package]
-version = "1.1.0"
+version = "1.2.0"
 edition = "2021"
 license = "GPL 3.0"
 repository = "https://github.com/cosmorama/wynd-lsd"
@@ -22,7 +22,7 @@ cw-utils = "1.0"
 semver = "1"
 serde = { version = "1", default-features = false, features = ["derive"] }
 thiserror = "1"
-wynd-lsd-hub = { path = "./contracts/lsd-hub", version = "1.0.0", features = ["library"] }
+wynd-lsd-hub = { path = "./contracts/lsd-hub", version = "1.2.0", features = ["library"] }
 cw-placeholder = { version = "1.0", git = "https://github.com/cosmorama/wynddex.git", tag = "v1.0.0", features = [
     "library",
 ] }

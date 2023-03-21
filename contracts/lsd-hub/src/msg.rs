@@ -23,7 +23,7 @@ pub struct InstantiateMsg {
     // This address collects a commission from the rewards
     pub treasury: String,
     /// This is the percentage of the collected rewards sent to the treasury
-    pub comission: Decimal,
+    pub commission: Decimal,
 
     /// The owner/admin of the created CW20
     pub owner: String,

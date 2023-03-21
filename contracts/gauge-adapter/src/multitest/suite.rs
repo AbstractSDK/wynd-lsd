@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use anyhow::Result as AnyResult;
 
 use cosmwasm_std::{testing::mock_env, Addr, CosmosMsg, Decimal, Validator};
@@ -62,10 +64,11 @@ fn store_placeholder_code(app: &mut App) -> u64 {
 
 #[derive(Debug)]
 pub struct SuiteBuilder {
-    chain_validators: Vec<String>,
-    validator_commission: Decimal,
+    max_allowed_commission: Decimal,
+    // validator / commission
+    chain_validators: Vec<(String, Decimal)>,
 
-    comission: Decimal,
+    commission: Decimal,
     validators: Vec<(String, Decimal)>,
     epoch_period: u64,
     unbond_period: u64,
@@ -76,13 +79,22 @@ pub struct SuiteBuilder {
 impl SuiteBuilder {
     pub fn new() -> Self {
         Self {
+            max_allowed_commission: Decimal::one(),
             chain_validators: vec![
-                "junovaloper1t8ehvswxjfn3ejzkjtntcyrqwvmvuknzmvtaaa".to_string(),
-                "junovaloper196ax4vc0lwpxndu9dyhvca7jhxp70rmcqcnylw".to_string(),
-                "junovaloper1y0us8xvsvfvqkk9c6nt5cfyu5au5tww2wsdcwk".to_string(),
+                (
+                    "junovaloper1t8ehvswxjfn3ejzkjtntcyrqwvmvuknzmvtaaa".to_string(),
+                    Decimal::one(),
+                ),
+                (
+                    "junovaloper196ax4vc0lwpxndu9dyhvca7jhxp70rmcqcnylw".to_string(),
+                    Decimal::one(),
+                ),
+                (
+                    "junovaloper1y0us8xvsvfvqkk9c6nt5cfyu5au5tww2wsdcwk".to_string(),
+                    Decimal::one(),
+                ),
             ],
-            validator_commission: Decimal::percent(1),
-            comission: Decimal::percent(10),
+            commission: Decimal::percent(10),
             validators: vec![(
                 "junovaloper196ax4vc0lwpxndu9dyhvca7jhxp70rmcqcnylw".to_string(),
                 Decimal::one(),
@@ -94,17 +106,16 @@ impl SuiteBuilder {
         }
     }
 
-    pub fn with_chain_validators(mut self, chain_validators: Vec<&str>) -> Self {
-        self.chain_validators = chain_validators
-            .into_iter()
-            .map(|v| v.to_string())
-            .collect();
+    pub fn with_max_allowed_commission(mut self, commission: &str) -> Self {
+        self.max_allowed_commission = Decimal::from_str(commission).unwrap();
         self
     }
 
-    #[allow(unused)]
-    pub fn with_validator_commission(mut self, validator_commission: Decimal) -> Self {
-        self.validator_commission = validator_commission;
+    pub fn with_chain_validators(mut self, chain_validators: Vec<(&str, &str)>) -> Self {
+        self.chain_validators = chain_validators
+            .into_iter()
+            .map(|(v, c)| (v.to_string(), Decimal::from_str(c).unwrap()))
+            .collect();
         self
     }
 
@@ -115,8 +126,8 @@ impl SuiteBuilder {
     }
 
     #[allow(unused)]
-    pub fn with_comission(mut self, comission: Decimal) -> Self {
-        self.comission = comission;
+    pub fn with_commission(mut self, commission: Decimal) -> Self {
+        self.commission = commission;
         self
     }
 
@@ -166,7 +177,7 @@ impl SuiteBuilder {
                 &HubInstantiateMsg {
                     treasury: "treasury".to_string(),
                     owner: owner.to_string(),
-                    comission: self.comission,
+                    commission: self.commission,
                     validators: self.validators,
                     cw20_init: TokenInitInfo {
                         cw20_code_id,
@@ -190,6 +201,7 @@ impl SuiteBuilder {
 
         let adapter_init_msg = crate::msg::InstantiateMsg {
             hub: hub.to_string(),
+            max_commission: self.max_allowed_commission,
         };
         let adapter_label = "Gauge Adapter";
 
@@ -227,14 +239,14 @@ impl SuiteBuilder {
         };
 
         app.init_modules(|router, api, storage| -> AnyResult<()> {
-            for val in self.chain_validators {
+            for (address, commission) in self.chain_validators {
                 router.staking.add_validator(
                     api,
                     storage,
                     &mock_env().block,
                     Validator {
-                        address: val,
-                        commission: self.validator_commission,
+                        address,
+                        commission,
                         max_commission: Decimal::one(),
                         max_change_rate: Decimal::one(),
                     },

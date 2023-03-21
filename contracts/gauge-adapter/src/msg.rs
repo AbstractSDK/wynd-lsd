@@ -5,12 +5,16 @@ use cosmwasm_std::{CosmosMsg, Decimal};
 pub struct InstantiateMsg {
     /// Address of the hub contract
     pub hub: String,
+    /// Maximum allowed commision by validator to be included in voting set
+    pub max_commission: Decimal,
 }
 
 #[cw_serde]
 pub enum MigrateMsg {
     /// Used to instantiate from cw-placeholder
     Init(InstantiateMsg),
+    /// Migrates from version <= v1.2.0
+    Update { max_commission: Decimal },
 }
 
 // Queries copied from gauge-orchestrator for now (we could use a common crate for this)
