@@ -11,7 +11,7 @@ export const bob = {
   mnemonic: "remain fragile remove stamp quiz bus country dress critic mammal office need",
   address0: "wasm1lvrwcvrqlc5ktzp2c4t22xgkx29q3y83426at5",
 }
-export const DEFAULT_COMISSION = "0.01";
+export const DEFAULT_COMMISSION = "0.01";
 export const DEFAULT_EPOCH_PEROID = 5;
 export const DEFAULT_UNBOND_PEROID = 5;
 export const DELAY_EPOCH = 5000;

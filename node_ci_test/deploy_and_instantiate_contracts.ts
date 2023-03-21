@@ -12,7 +12,7 @@ import {readFileSync} from 'fs';
 declare var process; 
 declare var __dirname;
 import { getCosmWasmClient} from './src/index';
-import { alice, DEFAULT_COMISSION, DEFAULT_EPOCH_PEROID, DEFAULT_UNBOND_PEROID, ENDPOINT, GAS_INSTANTIATE_COST, GAS_UPLOAD_COST } from './src/constants';
+import { alice, DEFAULT_COMMISSION, DEFAULT_EPOCH_PEROID, DEFAULT_UNBOND_PEROID, ENDPOINT, GAS_INSTANTIATE_COST, GAS_UPLOAD_COST } from './src/constants';
 async function main() {
   const { gasPrice, client } = await getCosmWasmClient();
 
@@ -46,7 +46,7 @@ async function main() {
       {
         // TODO: change this to a better address
         treasury: admin,
-        comission: DEFAULT_COMISSION,
+        commission: DEFAULT_COMMISSION,
         owner: admin,
         validators: [["wasmvaloper1tjgue6r5kqj5dets24pwaa9u7wuzucpwfsgndk", "1.0"]],
         cw20_init: {

@@ -177,7 +177,7 @@ impl SuiteBuilder {
                 admin.clone(),
                 &InstantiateMsg {
                     treasury: "treasury".to_string(),
-                    comission: self.treasury_commission,
+                    commission: self.treasury_commission,
                     validators: self.validators,
                     owner: "owner".to_string(),
 

@@ -1,12 +1,16 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult, WasmMsg,
+    ensure, to_binary, Addr, Binary, Decimal, Deps, DepsMut, Empty, Env, MessageInfo, Response,
+    StdResult, WasmMsg,
 };
 use cw2::set_contract_version;
+use cw_utils::ensure_from_older_version;
 
 use cw_placeholder::contract::CONTRACT_NAME as PLACEHOLDER_CONTRACT_NAME;
 use wynd_lsd_hub::msg::ExecuteMsg as HubExecuteMsg;
+
+use semver::Version;
 
 use crate::error::ContractError;
 use crate::msg::{AdapterQueryMsg, InstantiateMsg, MigrateMsg};
@@ -25,8 +29,14 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
+    ensure!(
+        msg.max_commission > Decimal::zero() && msg.max_commission <= Decimal::one(),
+        ContractError::InvalidMaxCommission {}
+    );
+
     let config = Config {
         hub: deps.api.addr_validate(&msg.hub)?,
+        max_commission: msg.max_commission,
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -66,11 +76,14 @@ mod query {
     use super::*;
 
     pub fn all_options(deps: Deps) -> StdResult<AllOptionsResponse> {
+        let max_commission = CONFIG.load(deps.storage)?.max_commission;
+
         Ok(AllOptionsResponse {
             options: deps
                 .querier
                 .query_all_validators()?
                 .into_iter()
+                .filter(|v| v.commission <= max_commission)
                 .map(|v| v.address)
                 .collect(),
         })
@@ -86,7 +99,10 @@ mod query {
         deps: Deps,
         new_validators: Vec<(String, Decimal)>,
     ) -> StdResult<SampleGaugeMsgsResponse> {
-        let Config { hub } = CONFIG.load(deps.storage)?;
+        let Config {
+            hub,
+            max_commission: _,
+        } = CONFIG.load(deps.storage)?;
         Ok(SampleGaugeMsgsResponse {
             execute: vec![WasmMsg::Execute {
                 contract_addr: hub.to_string(),
@@ -95,6 +111,15 @@ mod query {
             }
             .into()],
         })
+    }
+}
+
+pub mod migration {
+    use cosmwasm_schema::cw_serde;
+
+    #[cw_serde]
+    pub struct OldConfig {
+        pub hub: String,
     }
 }
 
@@ -126,6 +151,20 @@ pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> Result<Response, Con
             )
             .unwrap();
         }
+        MigrateMsg::Update { max_commission } => {
+            let version = ensure_from_older_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+            if version < "1.2.0".parse::<Version>().unwrap() {
+                use cw_storage_plus::Item;
+                let old_storage: Item<migration::OldConfig> = Item::new("config");
+                let old_config = old_storage.load(deps.storage)?;
+
+                let new_config = Config {
+                    hub: Addr::unchecked(old_config.hub),
+                    max_commission,
+                };
+                CONFIG.save(deps.storage, &new_config)?;
+            }
+        }
     };
 
     Ok(Response::new())
@@ -145,12 +184,62 @@ mod tests {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
             hub: "hub".to_string(),
+            max_commission: Decimal::percent(30),
         };
         instantiate(deps.as_mut(), mock_env(), mock_info("user", &[]), msg).unwrap();
 
         // check if the config is stored
         let config = CONFIG.load(deps.as_ref().storage).unwrap();
         assert_eq!(config.hub, "hub");
+        assert_eq!(config.max_commission, Decimal::percent(30));
+    }
+
+    #[test]
+    fn invalid_max_commission() {
+        let mut deps = mock_dependencies();
+        let msg = InstantiateMsg {
+            hub: "hub".to_string(),
+            max_commission: Decimal::zero(),
+        };
+
+        let err = instantiate(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("user", &[]),
+            msg.clone(),
+        )
+        .unwrap_err();
+        assert_eq!(err, ContractError::InvalidMaxCommission {});
+
+        let msg = InstantiateMsg {
+            max_commission: Decimal::percent(101),
+            ..msg
+        };
+        let err = instantiate(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("user", &[]),
+            msg.clone(),
+        )
+        .unwrap_err();
+        assert_eq!(err, ContractError::InvalidMaxCommission {});
+
+        let msg = InstantiateMsg {
+            max_commission: Decimal::one(),
+            ..msg
+        };
+        instantiate(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("user", &[]),
+            msg.clone(),
+        )
+        .unwrap();
+        let msg = InstantiateMsg {
+            max_commission: Decimal::percent(1),
+            ..msg
+        };
+        instantiate(deps.as_mut(), mock_env(), mock_info("user", &[]), msg).unwrap();
     }
 
     #[test]
@@ -163,6 +252,7 @@ mod tests {
             mock_info("user", &[]),
             InstantiateMsg {
                 hub: "hub".to_string(),
+                max_commission: Decimal::percent(30),
             },
         )
         .unwrap();

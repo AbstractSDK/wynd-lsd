@@ -3,7 +3,7 @@ import "jasmine";
 import { encodeBase64, getCosmWasmClient } from "../src/index";
 import { coin } from '@cosmjs/proto-signing';
 import { calculateFee } from '@cosmjs/stargate';
-import { CONFIG_QUERY, BOND_EXECUTE_MSG, CLAIM_EXECUTE_MSG, alice, bob, DEFAULT_COMISSION, DEFAULT_UNBOND_PEROID, DEFAULT_EPOCH_PEROID, DELAY_EPOCH, GAS_INSTANTIATE_COST, GAS_EXECUTE_COST } from "../src/constants";
+import { CONFIG_QUERY, BOND_EXECUTE_MSG, CLAIM_EXECUTE_MSG, alice, bob, DEFAULT_COMMISSION, DEFAULT_UNBOND_PEROID, DEFAULT_EPOCH_PEROID, DELAY_EPOCH, GAS_INSTANTIATE_COST, GAS_EXECUTE_COST } from "../src/constants";
 import { SpecReporter, StacktraceOption } from 'jasmine-spec-reporter';
 
 // Make Jasmine output prettier and more verbose
@@ -23,7 +23,7 @@ describe("The LSD Hub", function () {
         const result = await client.queryContractSmart(WYND_LSD_HUB, CONFIG_QUERY);
 
         expect(result.owner).toBe(alice.address0);
-        expect(result.commission).toBe(DEFAULT_COMISSION);
+        expect(result.commission).toBe(DEFAULT_COMMISSION);
         expect(result.unbond_period).toBe(DEFAULT_UNBOND_PEROID);
         expect(result.epoch_period).toBe(DEFAULT_EPOCH_PEROID);
     });

@@ -45,7 +45,7 @@ pub fn instantiate(
     SUPPLY.save(deps.storage, &supply)?;
 
     // Verify commission is greater than 0.0 and no higher than 0.50
-    if msg.comission < Decimal::zero() || msg.comission > Decimal::percent(50) {
+    if msg.commission < Decimal::zero() || msg.commission > Decimal::percent(50) {
         return Err(ContractError::InvalidCommission {});
     }
 
@@ -94,7 +94,7 @@ pub fn instantiate(
     let config = Config {
         token_contract: Addr::unchecked(""),
         treasury: deps.api.addr_validate(&msg.treasury)?,
-        commission: msg.comission,
+        commission: msg.commission,
         epoch_period: msg.epoch_period,
         unbond_period: msg.unbond_period,
         owner: deps.api.addr_validate(&msg.owner)?,
@@ -771,7 +771,7 @@ mod tests {
     fn init(deps: DepsMut, owner: &str) -> Response {
         let msg = InstantiateMsg {
             treasury: "treasury".to_string(),
-            comission: Decimal::percent(10),
+            commission: Decimal::percent(10),
             validators: vec![("val1".to_string(), Decimal::percent(100))],
             owner: owner.to_string(),
 
@@ -802,7 +802,7 @@ mod tests {
 
         let msg = InstantiateMsg {
             treasury: "treasury".to_string(),
-            comission: Decimal::percent(10),
+            commission: Decimal::percent(10),
             validators: vec![("val1".to_string(), Decimal::percent(100))],
             owner: "owner".to_string(),
 
@@ -894,7 +894,7 @@ mod tests {
         // Instantiate message with invalid commission
         let msg = InstantiateMsg {
             treasury: "treasury".to_string(),
-            comission: Decimal::percent(100),
+            commission: Decimal::percent(100),
             validators: vec![("val1".to_string(), Decimal::percent(100))],
             owner: "owner".to_string(),
 
@@ -925,7 +925,7 @@ mod tests {
         // Instantiate message with invalid validator weights
         let msg = InstantiateMsg {
             treasury: "treasury".to_string(),
-            comission: Decimal::percent(10),
+            commission: Decimal::percent(10),
             validators: vec![("val1".to_string(), Decimal::percent(50))],
             owner: "owner".to_string(),
 
@@ -953,7 +953,7 @@ mod tests {
         // Instantiate message with a badd Liquidity Discount value
         let msg = InstantiateMsg {
             treasury: "treasury".to_string(),
-            comission: Decimal::percent(10),
+            commission: Decimal::percent(10),
             validators: vec![("val1".to_string(), Decimal::percent(100))],
             owner: "owner".to_string(),
 
@@ -1074,7 +1074,7 @@ mod tests {
 
         let msg = InstantiateMsg {
             treasury: "treasury".to_string(),
-            comission: Decimal::percent(10),
+            commission: Decimal::percent(10),
             validators: vec![("val1".to_string(), Decimal::percent(100))],
             owner: "owner".to_string(),
 
