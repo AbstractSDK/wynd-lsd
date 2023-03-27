@@ -679,7 +679,7 @@ pub mod migration {
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
     let version = ensure_from_older_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     if version < "1.1.0".parse::<Version>().unwrap() {
@@ -703,6 +703,13 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, C
             old_supply.unbonding.is_empty(),
             ContractError::MigrationFailed {}
         );
+    }
+
+    if let Some(new_owner) = msg.new_owner {
+        CONFIG.update::<_, StdError>(deps.storage, |mut config| {
+            config.owner = deps.api.addr_validate(&new_owner)?;
+            Ok(config)
+        })?;
     }
 
     Ok(Response::new())

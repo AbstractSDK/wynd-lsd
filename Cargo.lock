@@ -81,9 +81,9 @@ checksum = "520fbf3c07483f94e3e3ca9d0cfd913d7718ef2483d2cfd91c0d9e91474ab913"
 
 [[package]]
 name = "cosmwasm-crypto"
-version = "1.2.2"
+version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a8263ce52392898aa17c2a0984b7c542df416e434f6e0cb1c1a11771054d159"
+checksum = "f22add0f9b2a5416df98c1d0248a8d8eedb882c38fbf0c5052b64eebe865df6d"
 dependencies = [
  "digest 0.10.6",
  "ed25519-zebra",
@@ -94,18 +94,18 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-derive"
-version = "1.2.2"
+version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1895f6d7a191bb044e3c555190d1da555c2571a3af41f849f60c855580e392f"
+checksum = "c2e64f710a18ef90d0a632cf27842e98ffc2d005a38a6f76c12fd0bc03bc1a2d"
 dependencies = [
  "syn 1.0.109",
 ]
 
 [[package]]
 name = "cosmwasm-schema"
-version = "1.2.2"
+version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1b99f612ccf162940ae2eef9f370ee37cf2ddcf4a9a8f5ee15ec6b46a5ecd2e"
+checksum = "fe5ad2e23a971b9e4cd57b20cee3e2e79c33799bed4b128e473aca3702bfe5dd"
 dependencies = [
  "cosmwasm-schema-derive",
  "schemars",
@@ -116,9 +116,9 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-schema-derive"
-version = "1.2.2"
+version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a92ceea61033cb69c336abf673da017ddf251fc4e26e0cdd387eaf8bedb14e49"
+checksum = "2926d159a9bb1a716a592b40280f1663f2491a9de3b6da77c0933cee2a2655b8"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -127,9 +127,9 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-std"
-version = "1.2.2"
+version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ecc01051aab3bb88d5efe0b90f24a6df1ca96a873b12fc21b862b17539c84ee9"
+checksum = "76fee88ff5bf7bef55bd37ac0619974701b99bf6bd4b16cf56ee8810718abd71"
 dependencies = [
  "base64",
  "cosmwasm-crypto",
@@ -147,9 +147,9 @@ dependencies = [
 
 [[package]]
 name = "cpufeatures"
-version = "0.2.5"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28d997bd5e24a5928dd43e46dc529867e207907fe0b239c3477d924f7f2ca320"
+checksum = "280a9f2d8b3a38871a3c8a46fb80db65e5e5ed97da80c4d08bf27fb63e35e181"
 dependencies = [
  "libc",
 ]
@@ -429,7 +429,7 @@ checksum = "c8cbd1169bd7b4a0a20d92b9af7a7e0422888bd38a6f5ec29c1fd8c1558a272e"
 
 [[package]]
 name = "gauge-adapter"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "anyhow",
  "cosmwasm-schema",
@@ -559,9 +559,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.52"
+version = "1.0.54"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d0e1ae9e836cc3beddd63db0df682593d7e2d3d891ae8c9083d2113e1744224"
+checksum = "e472a104799c74b514a57226160104aa483546de37e839ec50e3c2e41dd87534"
 dependencies = [
  "unicode-ident",
 ]
@@ -700,7 +700,7 @@ checksum = "e801c1712f48475582b7696ac71e0ca34ebb30e09338425384269d9717c62cad"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.4",
+ "syn 2.0.10",
 ]
 
 [[package]]
@@ -794,9 +794,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.4"
+version = "2.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c622ae390c9302e214c31013517c2061ecb2699935882c60a9b37f82f8625ae"
+checksum = "5aad1363ed6d37b84299588d62d3a7d95b5a5c2d9aad5c85609fda12afaa1f40"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -820,7 +820,7 @@ checksum = "f9456a42c5b0d803c8cd86e73dd7cc9edd429499f37a3550d286d5e86720569f"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.4",
+ "syn 2.0.10",
 ]
 
 [[package]]
@@ -865,7 +865,7 @@ checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 
 [[package]]
 name = "wynd-lsd-hub"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "anyhow",
  "cosmwasm-schema",
@@ -883,6 +883,6 @@ dependencies = [
 
 [[package]]
 name = "zeroize"
-version = "1.5.7"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c394b5bd0c6f669e7275d9c20aa90ae064cb22e75a1cad54e1b34088034b149f"
+checksum = "2a0956f1ba7c7909bfb66c2e9e4124ab6f6482560f6628b5aaeba39207c9aad9"
