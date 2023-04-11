@@ -56,6 +56,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "bond-router"
+version = "1.3.0"
+dependencies = [
+ "anyhow",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-multi-test",
+ "cw-storage-plus",
+ "cw-utils",
+ "cw2",
+ "cw20",
+ "cw20-base",
+ "thiserror",
+ "wynd-lsd-hub",
+ "wyndex",
+ "wyndex-factory",
+ "wyndex-pair-lsd",
+ "wyndex-stake",
+]
+
+[[package]]
 name = "byteorder"
 version = "1.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -212,9 +233,9 @@ dependencies = [
 
 [[package]]
 name = "cw-multi-test"
-version = "0.16.2"
+version = "0.16.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2eb84554bbfa6b66736abcd6a9bfdf237ee0ecb83910f746dff7f799093c80a"
+checksum = "d09dcedf6e747839af86de6eec7678ea9d41e8b5675391e19b2eace9b3e87da1"
 dependencies = [
  "anyhow",
  "cosmwasm-std",
@@ -231,8 +252,20 @@ dependencies = [
 
 [[package]]
 name = "cw-placeholder"
-version = "1.0.0"
-source = "git+https://github.com/cosmorama/wynddex.git?tag=v1.0.0#84faac5a7951cfcebe590f8bf8923516d9d82964"
+version = "2.0.2"
+source = "git+https://github.com/cosmorama/wynddex.git?tag=v2.0.2#592cee00712aa0c7840afc2dbfcaeb4fec1c57d9"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-storage-plus",
+ "cw2",
+ "thiserror",
+]
+
+[[package]]
+name = "cw-placeholder"
+version = "2.0.3"
+source = "git+https://github.com/cosmorama/wynddex.git#25130c21c2066923f87dd85fd3569bb5a1b34a45"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -429,13 +462,13 @@ checksum = "c8cbd1169bd7b4a0a20d92b9af7a7e0422888bd38a6f5ec29c1fd8c1558a272e"
 
 [[package]]
 name = "gauge-adapter"
-version = "1.2.1"
+version = "1.3.0"
 dependencies = [
  "anyhow",
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-multi-test",
- "cw-placeholder",
+ "cw-placeholder 2.0.2",
  "cw-storage-plus",
  "cw-utils",
  "cw2",
@@ -448,9 +481,9 @@ dependencies = [
 
 [[package]]
 name = "generic-array"
-version = "0.14.6"
+version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bff49e947297f3312447abdca79f45f4738097cc82b06e72054d2223f601f1b9"
+checksum = "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a"
 dependencies = [
  "typenum",
  "version_check",
@@ -458,9 +491,9 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
-version = "0.2.8"
+version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c05aeb6a22b8f62540c194aac980f2115af067bfe15a0734d7277a768d396b31"
+checksum = "c85e1d9ab2eadba7e5040d4e09cbd6d072b76a557ad64e797c2cb9d4da21d7e4"
 dependencies = [
  "cfg-if",
  "libc",
@@ -531,9 +564,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.140"
+version = "0.2.141"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99227334921fae1a979cf0bfdfcc6b3e5ce376ef57e16fb6fb3ea2ed6095f80c"
+checksum = "3304a64d199bb964be99741b7a14d26972741915b3649639149b2479bb46f4b5"
 
 [[package]]
 name = "once_cell"
@@ -558,10 +591,34 @@ dependencies = [
 ]
 
 [[package]]
-name = "proc-macro2"
-version = "1.0.54"
+name = "proc-macro-error"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e472a104799c74b514a57226160104aa483546de37e839ec50e3c2e41dd87534"
+checksum = "da25490ff9892aab3fcf7c36f08cfb902dd3e71ca0f9f9517bea02a73a5ce38c"
+dependencies = [
+ "proc-macro-error-attr",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+ "version_check",
+]
+
+[[package]]
+name = "proc-macro-error-attr"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1be40180e52ecc98ad80b184934baf3d0d29f979574e439af5a55274b35f869"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "version_check",
+]
+
+[[package]]
+name = "proc-macro2"
+version = "1.0.56"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b63bdb0cd06f1f4dedf69b254734f9b45af66e4a031e42a7480257d9898b435"
 dependencies = [
  "unicode-ident",
 ]
@@ -676,9 +733,9 @@ checksum = "bebd363326d05ec3e2f532ab7660680f3b02130d780c299bca73469d521bc0ed"
 
 [[package]]
 name = "serde"
-version = "1.0.158"
+version = "1.0.160"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "771d4d9c4163ee138805e12c710dd365e4f44be8be0503cb1bb9eb989425d9c9"
+checksum = "bb2f3770c8bce3bcda7e149193a069a0f4365bda1fa5cd88e03bca26afc1216c"
 dependencies = [
  "serde_derive",
 ]
@@ -694,13 +751,13 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.158"
+version = "1.0.160"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e801c1712f48475582b7696ac71e0ca34ebb30e09338425384269d9717c62cad"
+checksum = "291a097c63d8497e00160b166a967a4a79c64f3facdd01cbd7502231688d77df"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.10",
+ "syn 2.0.14",
 ]
 
 [[package]]
@@ -716,9 +773,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.94"
+version = "1.0.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c533a59c9d8a93a09c6ab31f0fd5e5f4dd1b8fc9434804029839884765d04ea"
+checksum = "d721eca97ac802aa7777b701877c8004d950fc142651367300d21c1cc0194744"
 dependencies = [
  "itoa",
  "ryu",
@@ -794,13 +851,48 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.10"
+version = "2.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5aad1363ed6d37b84299588d62d3a7d95b5a5c2d9aad5c85609fda12afaa1f40"
+checksum = "fcf316d5356ed6847742d036f8a39c3b8435cac10bd528a4bd461928a6ab34d5"
 dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "test-case"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a1d6e7bde536b0412f20765b76e921028059adfd1b90d8974d33fd3c91b25df"
+dependencies = [
+ "test-case-macros",
+]
+
+[[package]]
+name = "test-case-core"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d10394d5d1e27794f772b6fc854c7e91a2dc26e2cbf807ad523370c2a59c0cee"
+dependencies = [
+ "cfg-if",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "test-case-macros"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eeb9a44b1c6a54c1ba58b152797739dba2a83ca74e18168a68c980eb142f9404"
+dependencies = [
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+ "test-case-core",
 ]
 
 [[package]]
@@ -820,7 +912,7 @@ checksum = "f9456a42c5b0d803c8cd86e73dd7cc9edd429499f37a3550d286d5e86720569f"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.10",
+ "syn 2.0.14",
 ]
 
 [[package]]
@@ -865,7 +957,7 @@ checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 
 [[package]]
 name = "wynd-lsd-hub"
-version = "1.2.1"
+version = "1.3.0"
 dependencies = [
  "anyhow",
  "cosmwasm-schema",
@@ -878,7 +970,86 @@ dependencies = [
  "cw20",
  "cw20-base",
  "semver",
+ "test-case",
  "thiserror",
+]
+
+[[package]]
+name = "wynd-utils"
+version = "1.6.0"
+source = "git+https://github.com/cosmorama/wynddao.git?tag=v1.6.0#fe7c22942f578088c923932276ee8df640651ca7"
+dependencies = [
+ "cosmwasm-std",
+ "schemars",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "wyndex"
+version = "2.0.3"
+source = "git+https://github.com/cosmorama/wynddex.git#25130c21c2066923f87dd85fd3569bb5a1b34a45"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-storage-plus",
+ "cw-utils",
+ "cw20",
+ "cw20-base",
+ "itertools",
+ "thiserror",
+ "uint",
+]
+
+[[package]]
+name = "wyndex-factory"
+version = "2.0.3"
+source = "git+https://github.com/cosmorama/wynddex.git#25130c21c2066923f87dd85fd3569bb5a1b34a45"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-placeholder 2.0.3",
+ "cw-storage-plus",
+ "cw-utils",
+ "cw2",
+ "itertools",
+ "thiserror",
+ "wyndex",
+ "wyndex-stake",
+]
+
+[[package]]
+name = "wyndex-pair-lsd"
+version = "2.0.3"
+source = "git+https://github.com/cosmorama/wynddex.git#25130c21c2066923f87dd85fd3569bb5a1b34a45"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-storage-plus",
+ "cw-utils",
+ "cw2",
+ "cw20",
+ "cw20-base",
+ "itertools",
+ "wyndex",
+]
+
+[[package]]
+name = "wyndex-stake"
+version = "2.0.3"
+source = "git+https://github.com/cosmorama/wynddex.git#25130c21c2066923f87dd85fd3569bb5a1b34a45"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-controllers",
+ "cw-storage-plus",
+ "cw-utils",
+ "cw2",
+ "cw20",
+ "serde",
+ "thiserror",
+ "wynd-utils",
+ "wyndex",
 ]
 
 [[package]]

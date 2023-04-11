@@ -7,8 +7,6 @@ use super::suite::SuiteBuilder;
 use crate::state::{unbonding_info_num_epochs, unbonding_info_total_entries, BONDED};
 use cosmwasm_std::{assert_approx_eq, coin, Decimal, Delegation, Uint128};
 
-use cw_utils::Expiration;
-
 const DAY: u64 = 24 * HOUR;
 const HOUR: u64 = 60 * 60;
 
@@ -687,11 +685,8 @@ fn small_delegations() {
     let claims = suite.query_claims(delegator.to_string()).unwrap();
     assert_eq!(claims.len(), 1);
     // wait until unbonding period is over and claim
-    if let Expiration::AtTime(ts) = claims[0].release_at {
-        suite.update_time(ts.seconds() - suite.app.block_info().time.seconds());
-    } else {
-        panic!("Unexpected expiration type");
-    }
+    suite.update_time(claims[0].release_at.seconds() - suite.app.block_info().time.seconds());
+
     suite.process_native_unbonding();
     suite.claim(delegator).unwrap();
     assert!(suite.query_balance(delegator, "FUN").unwrap() > total_amount);
