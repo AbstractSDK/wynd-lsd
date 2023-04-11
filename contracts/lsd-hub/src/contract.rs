@@ -1,8 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    ensure, ensure_eq, to_binary, Addr, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Reply,
-    Response, StdError, StdResult, SubMsg, WasmMsg,
+    ensure, to_binary, Addr, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Reply, Response,
+    StdError, StdResult, SubMsg, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw20::MinterResponse;
@@ -14,7 +14,7 @@ use crate::msg::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ValidatorSetResponse,
 };
 use crate::state::{
-    Config, StakeInfo, Supply, BONDED, CLAIMS, CONFIG, STAKE_INFO, SUPPLY, TMP_STATE,
+    Config, StakeInfo, Supply, BONDED, CLAIMS, CONFIG, SLASHINGS, STAKE_INFO, SUPPLY, TMP_STATE,
 };
 use crate::valset::valset_change_redelegation_messages;
 
@@ -65,6 +65,8 @@ pub fn instantiate(
         validators: msg.validators.clone(),
     };
     STAKE_INFO.save(deps.storage, &info)?;
+
+    SLASHINGS.save(deps.storage, &vec![])?;
     BONDED.save(deps.storage, &vec![])?;
 
     let mut response = Response::default();
@@ -102,6 +104,8 @@ pub fn instantiate(
         next_unbond: next_epoch,
         max_concurrent_unbondings: msg.max_concurrent_unbondings,
         liquidity_discount: msg.liquidity_discount,
+        tombstone_treshold: msg.tombstone_treshold,
+        slashing_safety_margin: msg.slashing_safety_margin,
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -145,13 +149,16 @@ pub fn execute(
         ExecuteMsg::UpdateLiquidityDiscount { new_discount } => {
             execute::update_liquidity_discount(deps, info, new_discount)
         }
+        ExecuteMsg::CheckSlash {} => execute::check_slash(deps, env),
     }
 }
 
 mod execute {
+    use std::collections::HashMap;
+
     use crate::{
         msg::ReceiveMsg,
-        state::{TmpState, CLAIMS},
+        state::{unbondings_expiring_between, Slashing, TmpState, CLAIMS, SLASHINGS, UNBONDING},
         valset::ValsetChange,
     };
     use std::cmp::max;
@@ -159,11 +166,11 @@ mod execute {
     use super::*;
     use crate::state::CleanedSupply;
     use cosmwasm_std::{
-        from_binary, to_binary, BankMsg, Coin, CosmosMsg, DistributionMsg, Timestamp, Uint128,
-        WasmMsg,
+        ensure, ensure_eq, from_binary, to_binary, BankMsg, Coin, CosmosMsg, DistributionMsg,
+        Order, Timestamp, Uint128, WasmMsg,
     };
     use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
-    use cw_utils::{must_pay, Expiration};
+    use cw_utils::must_pay;
 
     pub fn set_validators(
         deps: DepsMut,
@@ -193,7 +200,7 @@ mod execute {
             )?;
             response = response.add_messages(messages);
             BONDED.save(deps.storage, &new_balances)?;
-            supply.total_bonded = new_balances.iter().map(|(_, v)| *v).sum();
+            supply.total_bonded = new_balances.into_iter().map(|(_, v)| v).sum();
             SUPPLY.save(deps.storage, &supply)?;
         }
 
@@ -269,11 +276,11 @@ mod execute {
             deps.storage,
             &sender,
             native_amount,
-            Expiration::AtTime(Timestamp::from_seconds(
+            Timestamp::from_seconds(
                 // this might be a little tight because it assumes we immediately call reinvest at next_unbond,
                 // but it should not be a problem in practice, since the claiming will just fail until the funds are available
                 next_unbond + config.unbond_period,
-            )),
+            ),
         )?;
 
         // burn the sent tokens
@@ -291,10 +298,28 @@ mod execute {
         let balance = deps
             .querier
             .query_balance(&env.contract.address, &supply.bond_denom)?;
+
+        let slashing_events = SLASHINGS.load(deps.storage)?;
+
         // check how much to send - min(balance, claims[sender]), and reduce the claim
         // Ensure we have enough balance to cover this and only send some claims if that is all we can cover
-        let to_send =
-            CLAIMS.claim_tokens(deps.storage, &info.sender, &env.block, Some(balance.amount))?;
+        let to_send = CLAIMS.claim_tokens(
+            deps.storage,
+            &info.sender,
+            &env.block,
+            |c| {
+                let mut amount = c.amount;
+                // adjust the claim amounts for slashing
+                for slashing in slashing_events
+                    .iter()
+                    .filter(|s| s.start < c.release_at.seconds() && s.end > c.release_at.seconds())
+                {
+                    amount = amount * slashing.multiplier;
+                }
+                amount
+            },
+            Some(balance.amount),
+        )?;
         if to_send.is_zero() {
             return Err(ContractError::NothingToClaim {});
         }
@@ -387,6 +412,137 @@ mod execute {
         Ok(Response::new()
             .add_attribute("action", "update_liquidity_discount")
             .add_attribute("liquidity_discount", new_discount.to_string()))
+    }
+
+    pub fn check_slash(deps: DepsMut, env: Env) -> Result<Response, ContractError> {
+        /// 0.00001 = 0.001%
+        const SLASHING_THRESHOLD: Decimal = Decimal::raw(10u128.pow(18 - 5));
+
+        let supply: Supply = SUPPLY.load(deps.storage)?;
+
+        // ensure safety margin around unbonding periods
+        let now = env.block.time.seconds();
+        let slashing_safety_margin = CONFIG.load(deps.storage)?.slashing_safety_margin;
+        // we do not call `supply.cleanup_unbonding` yet,
+        // since we want to also check supposedly finished unbondings
+        let unbonding = unbondings_expiring_between(
+            deps.storage,
+            now - slashing_safety_margin,
+            now + slashing_safety_margin,
+        )
+        .next()
+        .is_some();
+        ensure!(!unbonding, ContractError::UnbondingTooClose {});
+
+        // check if we have any slashing events by comparing queried delegations to our state
+        // now we have to cleanup old unbondings
+        let mut supply = supply.cleanup_unbonding(deps.storage, &env)?;
+
+        let mut bonded = BONDED.load(deps.storage)?;
+        let stored_delegations: HashMap<_, _> = bonded.iter().map(|(v, b)| (v, *b)).collect();
+
+        let queried_delegations = deps.querier.query_all_delegations(env.contract.address)?;
+        let slashed_validators: HashMap<_, _> = queried_delegations
+            .iter()
+            .filter_map(|d| {
+                let stored = stored_delegations
+                    .get(&d.validator)
+                    .copied()
+                    .unwrap_or_default();
+
+                // if difference is larger than threshold, this validator was slashed
+                if stored.saturating_sub(d.amount.amount) >= stored * SLASHING_THRESHOLD {
+                    // keep track of multiplier
+                    Some((&d.validator, Decimal::from_ratio(d.amount.amount, stored)))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        if slashed_validators.is_empty() {
+            // no slashing detected
+            return Ok(Response::new().add_attribute("slashed", "false"));
+        }
+
+        // we were slashed, so we need to update our state
+        // we also keep track of the old total for calculating the global multiplier to adjust claims
+        let (old_total_bonded, old_total_unbonding) = (supply.total_bonded, supply.total_unbonding);
+        bonded = bonded
+            .into_iter()
+            .map(|(validator, mut amount)| {
+                if let Some(multiplier) = slashed_validators.get(&validator) {
+                    amount = amount * *multiplier;
+                }
+                (validator, amount)
+            })
+            .collect();
+        supply.total_bonded = bonded.iter().map(|(_, b)| *b).sum();
+        BONDED.save(deps.storage, &bonded)?;
+
+        let mut unbondings = UNBONDING
+            .range(deps.storage, None, None, Order::Ascending)
+            .collect::<StdResult<Vec<_>>>()?;
+        for (expiration, unbondings) in unbondings.iter_mut() {
+            let mut changed = false;
+            for ub in unbondings.iter_mut() {
+                if let Some(multiplier) = slashed_validators.get(&ub.validator) {
+                    ub.amount = ub.amount * *multiplier;
+                    changed = true;
+                }
+            }
+            // only change entries if there actually was a slashed validator
+            if changed {
+                UNBONDING.save(deps.storage, *expiration, unbondings)?;
+            }
+        }
+        supply.total_unbonding = unbondings
+            .iter()
+            .flat_map(|(_, u)| u)
+            .map(|u| u.amount)
+            .sum();
+
+        // sanity check
+        #[cfg(debug_assertions)]
+        cosmwasm_std::assert_approx_eq!(
+            supply.total_bonded,
+            queried_delegations
+                .iter()
+                .map(|d| d.amount.amount)
+                .sum::<Uint128>(),
+            "0.0001"
+        );
+
+        let response = Response::new()
+            .add_attribute("slashed", "true")
+            .add_attribute("bonded_slashed", old_total_bonded - supply.total_bonded);
+
+        // we also need to update the pending claims
+        if old_total_unbonding.is_zero() {
+            SUPPLY.save(deps.storage, &supply)?;
+            return Ok(response.add_attribute("unbonded_slashed", Uint128::zero()));
+        }
+        let global_unbonding_multiplier =
+            Decimal::from_ratio(supply.total_unbonding, old_total_unbonding);
+
+        // we need to update the pending claims, but only the part that is actually unbonding
+        // (part of the claims can be in the contract balance, which is not slashed)
+        supply.claims = (supply.claims - old_total_unbonding) + supply.total_unbonding;
+        SUPPLY.save(deps.storage, &supply)?;
+
+        let unbonding_period = CONFIG.load(deps.storage)?.unbond_period;
+        SLASHINGS.update(deps.storage, |mut slashings| -> StdResult<_> {
+            slashings.push(Slashing {
+                start: env.block.time.seconds(),
+                end: env.block.time.plus_seconds(unbonding_period).seconds(),
+                multiplier: global_unbonding_multiplier,
+            });
+            Ok(slashings)
+        })?;
+
+        Ok(response.add_attribute(
+            "unbonded_slashed",
+            old_total_unbonding - supply.total_unbonding,
+        ))
     }
 }
 
@@ -796,6 +952,8 @@ mod tests {
                 marketing: None,
             },
             liquidity_discount: Decimal::percent(4),
+            tombstone_treshold: Decimal::percent(3),
+            slashing_safety_margin: 10 * 60,
         };
 
         let env = mock_env();
@@ -826,6 +984,8 @@ mod tests {
                 marketing: None,
             },
             liquidity_discount: Decimal::percent(4),
+            tombstone_treshold: Decimal::percent(3),
+            slashing_safety_margin: 10 * 60,
         };
 
         let sender = "addr0000";
@@ -918,6 +1078,8 @@ mod tests {
                 marketing: None,
             },
             liquidity_discount: Decimal::percent(4),
+            tombstone_treshold: Decimal::percent(3),
+            slashing_safety_margin: 10 * 60,
         };
 
         let sender = "addr0000";
@@ -949,6 +1111,8 @@ mod tests {
                 marketing: None,
             },
             liquidity_discount: Decimal::percent(4),
+            tombstone_treshold: Decimal::percent(3),
+            slashing_safety_margin: 10 * 60,
         };
 
         // Verify the error is InvalidCommission
@@ -977,6 +1141,8 @@ mod tests {
                 marketing: None,
             },
             liquidity_discount: Decimal::percent(100),
+            tombstone_treshold: Decimal::percent(3),
+            slashing_safety_margin: 10 * 60,
         };
 
         // Verify the error is InvalidCommission
@@ -1098,6 +1264,8 @@ mod tests {
                 marketing: None,
             },
             liquidity_discount: Decimal::percent(4),
+            tombstone_treshold: Decimal::percent(3),
+            slashing_safety_margin: 10 * 60,
         };
 
         let sender = "addr0000";

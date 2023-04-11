@@ -5,8 +5,9 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     Addr, Decimal, Deps, Env, Order, OverflowError, StdError, StdResult, Storage, Uint128,
 };
-use cw_controllers::Claims;
 use cw_storage_plus::{Bound, Item, Map};
+
+use crate::claim::Claims;
 
 #[cw_serde]
 pub struct Config {
@@ -29,6 +30,13 @@ pub struct Config {
     pub next_epoch: u64,
     /// This is the next time (in seconds) at which unbondings can take place in `reinvest`
     pub next_unbond: u64,
+
+    /// The minimum relative difference between the stored and queried delegations needed to consider a validator as tombstoned.
+    pub tombstone_treshold: Decimal,
+    /// The safety margin (in seconds) around unbondings where we don't allow slashing detection
+    /// in order to not confuse unbonding with slashing.
+    /// If there are any unbondings this many seconds in the future or past, we don't allow slashing detection.
+    pub slashing_safety_margin: u64,
 
     /// The expected discount applied to the underlying value of the staking token in the `TargetValue` query.
     /// The idea here is that no one will want to buy the staking token at exactly the price of the underlying,
@@ -149,6 +157,19 @@ pub fn count_unbonding(storage: &dyn Storage, env: &Env) -> StdResult<Uint128> {
     Ok(freed)
 }
 
+pub fn unbondings_expiring_between(
+    storage: &dyn Storage,
+    start: u64,
+    end: u64,
+) -> impl Iterator<Item = StdResult<(u64, Vec<Unbonding>)>> + '_ {
+    UNBONDING.range(
+        storage,
+        Some(Bound::exclusive(start)),
+        Some(Bound::exclusive(end)),
+        Order::Ascending,
+    )
+}
+
 /// Only for tests. How many different unbonding epochs are there.
 pub fn unbonding_info_num_epochs(storage: &dyn Storage) -> u64 {
     UNBONDING
@@ -210,6 +231,16 @@ impl Supply {
             .querier
             .query_balance(&env.contract.address, &self.bond_denom)?;
         Ok(coin.amount)
+    }
+
+    pub fn cleanup_unbonding(
+        mut self,
+        storage: &mut dyn Storage,
+        env: &Env,
+    ) -> StdResult<CleanedSupply> {
+        let freed = clean_unbonding(storage, env)?;
+        self.total_unbonding -= freed;
+        Ok(CleanedSupply(self))
     }
 }
 
@@ -295,6 +326,13 @@ pub struct TmpState {
     pub balance: Uint128,
 }
 
+#[cw_serde]
+pub struct Slashing {
+    pub start: u64,
+    pub end: u64,
+    pub multiplier: Decimal,
+}
+
 pub const SUPPLY: Item<Supply> = Item::new("supply");
 pub const CONFIG: Item<Config> = Item::new("config");
 pub const STAKE_INFO: Item<StakeInfo> = Item::new("stake_info");
@@ -302,6 +340,7 @@ pub const STAKE_INFO: Item<StakeInfo> = Item::new("stake_info");
 /// and the reply we get after withdrawing the rewards.
 pub const TMP_STATE: Item<TmpState> = Item::new("tmp_state");
 pub const CLAIMS: Claims = Claims::new("claims");
+pub const SLASHINGS: Item<Vec<Slashing>> = Item::new("slashings");
 
 /// Divides `numerator` by `denominator` and rounds up the result.
 /// This is needed because [`std`]'s implementation is currently unstable.

@@ -192,6 +192,8 @@ impl SuiteBuilder {
                     unbond_period: self.unbond_period,
                     max_concurrent_unbondings: self.max_concurrent_unbondings,
                     liquidity_discount: Decimal::percent(4),
+                    tombstone_treshold: Decimal::percent(3),
+                    slashing_safety_margin: 10 * 60,
                 },
                 &[],
                 "Wyndex LSD Hub",

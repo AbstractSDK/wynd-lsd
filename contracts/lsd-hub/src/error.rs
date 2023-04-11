@@ -29,7 +29,10 @@ pub enum ContractError {
     InvalidValidator {},
 
     #[error("Weights must add up to 1")]
-    InvalidValidatorWeights,
+    InvalidValidatorWeights {},
+
+    #[error("The next unbonding is too close to accurately detect slashing")]
+    UnbondingTooClose {},
 
     #[error("Commission must be higher than 0.0% and lower than 0.50%")]
     InvalidCommission {},

@@ -1,6 +1,9 @@
-use crate::msg::{
-    ConfigResponse, ExchangeRateResponse, ExecuteMsg, InstantiateMsg, QueryMsg, ReceiveMsg,
-    SupplyResponse, TargetValueResponse, TokenInitInfo, ValidatorSetResponse,
+use crate::{
+    claim::{Claim, ClaimsResponse},
+    msg::{
+        ConfigResponse, ExchangeRateResponse, ExecuteMsg, InstantiateMsg, QueryMsg, ReceiveMsg,
+        SupplyResponse, TargetValueResponse, TokenInitInfo, ValidatorSetResponse,
+    },
 };
 use anyhow::Result as AnyResult;
 use cosmwasm_std::{
@@ -9,7 +12,6 @@ use cosmwasm_std::{
 };
 use cw20::{BalanceResponse, Cw20Coin, Cw20QueryMsg};
 use cw20_base::msg::InstantiateMsg as Cw20InstantiateMsg;
-use cw_controllers::{Claim, ClaimsResponse};
 use cw_multi_test::{
     App, AppResponse, Contract, ContractWrapper, Executor, StakingInfo, StakingSudo, SudoMsg,
 };
@@ -194,6 +196,8 @@ impl SuiteBuilder {
                         marketing: None,
                     },
                     liquidity_discount: self.liquidity_discount,
+                    tombstone_treshold: Decimal::percent(3),
+                    slashing_safety_margin: 10 * 60,
                 },
                 &[],
                 "hub",
@@ -290,6 +294,15 @@ impl Suite {
                 amount: balance.into(),
                 msg,
             },
+            &[],
+        )
+    }
+
+    pub fn check_slash(&mut self) -> AnyResult<AppResponse> {
+        self.app.execute_contract(
+            Addr::unchecked("anyone"),
+            self.hub.clone(),
+            &ExecuteMsg::CheckSlash {},
             &[],
         )
     }
@@ -420,5 +433,15 @@ impl Suite {
             storage.set(&key, &value);
         }
         storage
+    }
+
+    pub fn slash(&mut self, validator: &str, amount: Decimal) -> AnyResult<AppResponse> {
+        self.app.sudo(
+            StakingSudo::Slash {
+                validator: validator.to_string(),
+                percentage: amount,
+            }
+            .into(),
+        )
     }
 }
