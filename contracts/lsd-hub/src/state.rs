@@ -312,7 +312,7 @@ impl CleanedSupply {
     /// The amount parameter is denominated in lsd tokens.
     /// Note that this only updates the supply. Make sure to create a claim for the user as well.
     pub fn unbond(&mut self, amount: Uint128, balance: Uint128) -> Uint128 {
-        let native = amount * self.tokens_per_share(balance);
+        let native = amount.mul_floor(self.tokens_per_share(balance));
         self.issued -= amount;
         self.claims += native;
 

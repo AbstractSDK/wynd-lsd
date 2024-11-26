@@ -1,7 +1,7 @@
 use anyhow::Result as AnyResult;
 
 use cosmwasm_std::{
-    coin, coins, testing::mock_env, to_binary, Addr, Coin, Decimal, Uint128, Validator,
+    coin, coins, testing::mock_env, to_json_binary, Addr, Coin, Decimal, Uint128, Validator,
 };
 use cw20::{BalanceResponse, Cw20Coin, Cw20ExecuteMsg, Cw20QueryMsg};
 use cw_multi_test::{App, AppResponse, ContractWrapper, Executor, StakingInfo};
@@ -245,7 +245,7 @@ impl SuiteBuilder {
                     AssetInfo::Native(NATIVE.to_owned()),
                 ],
                 init_params: Some(
-                    to_binary(&StablePoolParams {
+                    to_json_binary(&StablePoolParams {
                         amp: 23,
                         owner: Some(owner.to_string()),
                         lsd: Some(LsdInfo {

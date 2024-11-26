@@ -12,8 +12,6 @@ repository = { workspace = true }
 crate-type = ["cdylib", "rlib"]
 
 [features]
-# for more explicit tests, cargo test --features=backtraces
-backtraces = ["cosmwasm-std/backtraces"]
 # use library feature to disable all instantiate/execute/query exports
 library = []
 
@@ -28,11 +26,15 @@ thiserror = { workspace = true }
 wynd-lsd-hub = { workspace = true }
 
 wyndex = { version = "2.0", git = "https://github.com/cosmorama/wynddex.git" }
-wyndex-factory = { version = "2.0", git = "https://github.com/cosmorama/wynddex.git", features = [ "library" ]}
+wyndex-factory = { version = "2.0", git = "https://github.com/cosmorama/wynddex.git", features = [
+    "library",
+] }
 wyndex-pair-lsd = { version = "2.0", git = "https://github.com/cosmorama/wynddex.git", features = [
     "library",
 ] }
-wyndex-stake = { version = "2.0", git = "https://github.com/cosmorama/wynddex.git", features = [ "library" ]}
+wyndex-stake = { version = "2.0", git = "https://github.com/cosmorama/wynddex.git", features = [
+    "library",
+] }
 
 [dev-dependencies]
 anyhow = { workspace = true }

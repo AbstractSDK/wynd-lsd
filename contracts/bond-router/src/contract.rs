@@ -1,7 +1,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Coin, Decimal, Deps, DepsMut, Env, Fraction, MessageInfo, Reply, Response,
+    to_json_binary, Binary, Coin, Decimal, Deps, DepsMut, Env, Fraction, MessageInfo, Reply, Response,
     StdResult, SubMsg, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
@@ -113,7 +113,7 @@ pub fn execute_bond(deps: DepsMut, info: MessageInfo) -> Result<Response, Contra
     if let Some(to_swap) = trade {
         let msg = WasmMsg::Execute {
             contract_addr: cfg.pair.into_string(),
-            msg: to_binary(&PairExecuteMsg::Swap {
+            msg: to_json_binary(&PairExecuteMsg::Swap {
                 offer_asset: Asset {
                     info: AssetInfo::Native(cfg.bond_denom.clone()),
                     amount: to_swap,
@@ -145,7 +145,7 @@ pub fn execute_bond(deps: DepsMut, info: MessageInfo) -> Result<Response, Contra
         // just bond
         let msg = WasmMsg::Execute {
             contract_addr: cfg.hub.into_string(),
-            msg: to_binary(&HubExecuteMsg::Bond {})?,
+            msg: to_json_binary(&HubExecuteMsg::Bond {})?,
             funds: vec![Coin {
                 denom: cfg.bond_denom,
                 amount: pay,
@@ -195,7 +195,7 @@ pub fn reply_bond_callback(deps: DepsMut, env: Env) -> Result<Response, Contract
         // send it back
         response = response.add_message(WasmMsg::Execute {
             contract_addr: cfg.lsd_token.to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Transfer { recipient, amount })?,
+            msg: to_json_binary(&Cw20ExecuteMsg::Transfer { recipient, amount })?,
             funds: vec![],
         });
     }
@@ -208,9 +208,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => {
             let cfg: ConfigResponse = CONFIG.load(deps.storage)?.into();
-            to_binary(&cfg)
+            to_json_binary(&cfg)
         }
-        QueryMsg::Simulate { bond } => to_binary(&query_simulate(deps, bond)?),
+        QueryMsg::Simulate { bond } => to_json_binary(&query_simulate(deps, bond)?),
     }
 }
 

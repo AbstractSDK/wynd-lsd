@@ -26,7 +26,7 @@ pub fn valset_change_redelegation_messages<'a>(
     // Map this to amounts here (as we only use as amount below)
     let new_valset: BTreeMap<_, Uint128> = new_valset
         .into_iter()
-        .map(|(addr, weight)| (addr, weight * supply.total_bonded))
+        .map(|(addr, weight)| (addr, supply.total_bonded.mul_floor(weight)))
         .collect();
 
     debug_assert_eq!(
@@ -315,7 +315,7 @@ mod tests {
     ) -> HashMap<String, Uint128> {
         let mut balances: HashMap<_, _> = valset
             .into_iter()
-            .map(|(addr, weight)| (addr, weight * supply.total_bonded))
+            .map(|(addr, weight)| (addr, supply.total_bonded.mul_floor(weight)))
             .collect();
 
         let sum = balances.iter().map(|(_, v)| v).sum::<Uint128>();
@@ -338,7 +338,7 @@ mod tests {
     ) {
         for (addr, weight) in valset {
             let balance = balances.get(&addr).unwrap();
-            let expected = weight * supply.total_bonded;
+            let expected = supply.total_bonded.mul_floor(weight);
             assert!(
                 balance >= &expected,
                 "balance for {} should be at least {}, but was only {}",

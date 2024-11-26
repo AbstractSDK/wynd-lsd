@@ -190,11 +190,12 @@ fn pending_claims_slashed() {
     );
     assert_approx_eq!(
         supply.total_bonded,
-        Uint128::new(amount - unbonding_amount) * Decimal::permille(999),
+        Uint128::new(amount - unbonding_amount).mul_floor(Decimal::permille(999)),
         "0.00009"
     );
     assert!(
-        supply.total_bonded <= Uint128::new(amount - unbonding_amount) * Decimal::permille(999),
+        supply.total_bonded
+            <= Uint128::new(amount - unbonding_amount).mul_floor(Decimal::permille(999)),
         "should be rounded down, if at all"
     );
     let bonded = BONDED.load(&storage).unwrap();

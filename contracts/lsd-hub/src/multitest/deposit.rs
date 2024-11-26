@@ -166,6 +166,7 @@ fn set_new_valset_more_validators() {
         delegator: _,
         validator,
         amount,
+        ..
     } = delegations[0].clone();
     assert_eq!(&validator, "testvaloper1");
     assert_eq!(amount, coin(500_000, "FUN"));
@@ -189,6 +190,7 @@ fn set_new_valset_more_validators() {
         delegator: _,
         validator,
         amount,
+        ..
     } = delegations[0].clone();
     assert_eq!(&validator, "testvaloper1");
     assert_eq!(amount, coin(250_000, "FUN"));
@@ -203,6 +205,7 @@ fn set_new_valset_more_validators() {
         delegator: _,
         validator,
         amount,
+        ..
     } = delegations[0].clone();
     assert_eq!(&validator, "testvaloper1");
     assert_eq!(amount, coin(251_236, "FUN"));
@@ -246,6 +249,7 @@ fn set_new_valset_less_validators() {
         delegator: _,
         validator,
         amount,
+        ..
     } = delegations[0].clone();
     assert_eq!(&validator, "testvaloper1");
     assert_eq!(amount, coin(330_000, "FUN"));
@@ -267,6 +271,7 @@ fn set_new_valset_less_validators() {
         delegator: _,
         validator,
         amount,
+        ..
     } = delegations[0].clone();
     assert_eq!(&validator, "testvaloper2");
     assert_eq!(amount, coin(500_000, "FUN"));
@@ -288,7 +293,7 @@ fn set_new_valset_less_validators() {
 
     let delegation = delegations[0].clone();
     assert!(
-        matches!(delegation, Delegation { delegator: _, validator, amount }
+        matches!(delegation, Delegation { delegator: _, validator, amount, .. }
         if validator == *"testvaloper2" && amount == coin(501_652, "FUN"))
     );
 }

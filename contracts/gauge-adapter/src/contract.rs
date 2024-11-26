@@ -1,8 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    ensure, to_binary, Addr, Binary, Decimal, Deps, DepsMut, Empty, Env, MessageInfo, Response,
-    StdResult, WasmMsg,
+    ensure, to_json_binary, Addr, Binary, Decimal, Deps, DepsMut, Empty, Env, MessageInfo,
+    Response, StdResult, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw_utils::ensure_from_older_version;
@@ -56,11 +56,13 @@ pub fn execute(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: AdapterQueryMsg) -> StdResult<Binary> {
     match msg {
-        AdapterQueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
-        AdapterQueryMsg::AllOptions {} => to_binary(&query::all_options(deps)?),
-        AdapterQueryMsg::CheckOption { option } => to_binary(&query::check_option(deps, option)?),
+        AdapterQueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?),
+        AdapterQueryMsg::AllOptions {} => to_json_binary(&query::all_options(deps)?),
+        AdapterQueryMsg::CheckOption { option } => {
+            to_json_binary(&query::check_option(deps, option)?)
+        }
         AdapterQueryMsg::SampleGaugeMsgs { selected } => {
-            to_binary(&query::sample_gauge_msgs(deps, selected)?)
+            to_json_binary(&query::sample_gauge_msgs(deps, selected)?)
         }
     }
 }
@@ -106,7 +108,7 @@ mod query {
         Ok(SampleGaugeMsgsResponse {
             execute: vec![WasmMsg::Execute {
                 contract_addr: hub.to_string(),
-                msg: to_binary(&HubExecuteMsg::SetValidators { new_validators })?,
+                msg: to_json_binary(&HubExecuteMsg::SetValidators { new_validators })?,
                 funds: vec![],
             }
             .into()],
@@ -277,7 +279,7 @@ mod tests {
             res.execute[0],
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "hub".to_string(),
-                msg: to_binary(&HubExecuteMsg::SetValidators {
+                msg: to_json_binary(&HubExecuteMsg::SetValidators {
                     new_validators: vec![
                         (
                             "junovaloper1t8ehvswxjfn3ejzkjtntcyrqwvmvuknzmvtaaa".to_string(),

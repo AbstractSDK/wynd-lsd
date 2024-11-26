@@ -1,13 +1,13 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    ensure, to_binary, Addr, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Reply, Response,
-    StdError, StdResult, SubMsg, WasmMsg,
+    ensure, to_json_binary, Addr, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Reply,
+    Response, StdError, StdResult, SubMsg, WasmMsg,
 };
+use cw2::ensure_from_older_version;
 use cw2::set_contract_version;
 use cw20::MinterResponse;
 use cw20_base::msg::InstantiateMsg as Cw20InstantiateMsg;
-use cw_utils::ensure_from_older_version;
 
 use crate::error::ContractError;
 use crate::msg::{
@@ -113,7 +113,7 @@ pub fn instantiate(
         WasmMsg::Instantiate {
             admin: Some(env.contract.address.to_string()), // use this contract as the initial admin so it can be changed later by a `MsgUpdateAdmin`
             code_id: msg.cw20_init.cw20_code_id,
-            msg: to_binary(&Cw20InstantiateMsg {
+            msg: to_json_binary(&Cw20InstantiateMsg {
                 name: msg.cw20_init.name,
                 symbol: msg.cw20_init.symbol,
                 decimals: msg.cw20_init.decimals,
@@ -166,7 +166,7 @@ mod execute {
     use super::*;
     use crate::state::CleanedSupply;
     use cosmwasm_std::{
-        ensure, ensure_eq, from_binary, to_binary, BankMsg, Coin, CosmosMsg, DistributionMsg,
+        ensure, ensure_eq, from_json, to_json_binary, BankMsg, Coin, CosmosMsg, DistributionMsg,
         Order, Timestamp, Uint128, WasmMsg,
     };
     use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
@@ -218,7 +218,7 @@ mod execute {
         let balance = supply.balance(deps.as_ref(), &env)?;
 
         // calculate how many shares to issue, this is determined by the exchange rate
-        let issue = paid * supply.shares_per_token(balance - paid);
+        let issue = paid.mul_floor(supply.shares_per_token(balance - paid));
         supply.issued += issue;
         SUPPLY.save(deps.storage, &supply)?;
 
@@ -231,7 +231,7 @@ mod execute {
 
         let res: Response = Response::new().add_message(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: config.token_contract.to_string(),
-            msg: to_binary(&mint_msg)?,
+            msg: to_json_binary(&mint_msg)?,
             funds: vec![],
         }));
 
@@ -244,7 +244,7 @@ mod execute {
         info: MessageInfo,
         msg: Cw20ReceiveMsg,
     ) -> Result<Response, ContractError> {
-        match from_binary(&msg.msg)? {
+        match from_json(&msg.msg)? {
             ReceiveMsg::Unbond {} => unbond(deps, env, info.sender, msg.amount, msg.sender),
         }
     }
@@ -286,7 +286,7 @@ mod execute {
         // burn the sent tokens
         let burn_msg = WasmMsg::Execute {
             contract_addr: config.token_contract.to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Burn { amount })?,
+            msg: to_json_binary(&Cw20ExecuteMsg::Burn { amount })?,
             funds: vec![],
         };
 
@@ -314,7 +314,7 @@ mod execute {
                     .iter()
                     .filter(|s| s.start < c.release_at.seconds() && s.end > c.release_at.seconds())
                 {
-                    amount = amount * slashing.multiplier;
+                    amount = amount.mul_floor(slashing.multiplier);
                 }
                 amount
             },
@@ -451,7 +451,7 @@ mod execute {
                     .unwrap_or_default();
 
                 // if difference is larger than threshold, this validator was slashed
-                if stored.saturating_sub(d.amount.amount) >= stored * SLASHING_THRESHOLD {
+                if stored.saturating_sub(d.amount.amount) >= stored.mul_floor(SLASHING_THRESHOLD) {
                     // keep track of multiplier
                     Some((&d.validator, Decimal::from_ratio(d.amount.amount, stored)))
                 } else {
@@ -471,7 +471,7 @@ mod execute {
             .into_iter()
             .map(|(validator, mut amount)| {
                 if let Some(multiplier) = slashed_validators.get(&validator) {
-                    amount = amount * *multiplier;
+                    amount = amount.mul_floor(*multiplier);
                 }
                 (validator, amount)
             })
@@ -486,7 +486,7 @@ mod execute {
             let mut changed = false;
             for ub in unbondings.iter_mut() {
                 if let Some(multiplier) = slashed_validators.get(&ub.validator) {
-                    ub.amount = ub.amount * *multiplier;
+                    ub.amount = ub.amount.mul_floor(*multiplier);
                     changed = true;
                 }
             }
@@ -550,14 +550,30 @@ mod execute {
 pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, ContractError> {
     match reply.id {
         AFTER_TOKEN_CREATION_REPLY => {
-            let res = cw_utils::parse_reply_instantiate_data(reply)?;
+            let result = reply
+                .result
+                .into_result()
+                .map_err(|e| StdError::generic_err(e))?;
+            let res = cw_utils::parse_instantiate_response_data(
+                result
+                    .msg_responses
+                    .get(0)
+                    .cloned()
+                    .map(|v| v.value)
+                    .or(result.data)
+                    .unwrap()
+                    .as_slice(),
+            )
+            .map_err(|_| {
+                StdError::parse_err("MsgInstantiateContractResponse", "failed to parse data")
+            })?;
 
             // Pass the contract admin of this contract to the Token contract
             let contract_info = deps
                 .querier
                 .query_wasm_contract_info(env.contract.address)?;
 
-            let admin = deps.api.addr_validate(&contract_info.admin.unwrap())?;
+            let admin = contract_info.admin.unwrap();
 
             let mut config = CONFIG.load(deps.storage)?;
             config.token_contract = deps.api.addr_validate(&res.contract_address)?;
@@ -605,7 +621,7 @@ mod reply {
 
         // send commission to the treasury
         let rewards = balance - TMP_STATE.load(deps.storage)?.balance;
-        let commission_amount = rewards * config.commission;
+        let commission_amount = rewards.mul_floor(config.commission);
         if !commission_amount.is_zero() {
             balance -= commission_amount;
             resp = resp.add_message(BankMsg::Send {
@@ -633,7 +649,7 @@ mod reply {
                 let mut val_payments: Vec<_> = stake_info
                     .validators
                     .into_iter()
-                    .map(|(addr, weight)| (addr, surplus * weight))
+                    .map(|(addr, weight)| (addr, surplus.mul_floor(weight)))
                     .collect();
 
                 // calculate how much is rounded off when multiplying by the weight
@@ -677,7 +693,7 @@ mod reply {
                     let mut val_payments: Vec<_> = stake_info
                         .validators
                         .into_iter()
-                        .map(|(addr, weight)| (addr, missing_liquidity * weight))
+                        .map(|(addr, weight)| (addr, missing_liquidity.mul_floor(weight)))
                         .collect();
 
                     // calculate how much is rounded off when multiplying by the weight
@@ -750,15 +766,15 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         Config {} => query::config(deps),
         Claims { address } => {
-            to_binary(&CLAIMS.query_claims(deps, &deps.api.addr_validate(&address)?)?)
+            to_json_binary(&CLAIMS.query_claims(deps, &deps.api.addr_validate(&address)?)?)
         }
-        ValidatorSet {} => to_binary(&ValidatorSetResponse {
+        ValidatorSet {} => to_json_binary(&ValidatorSetResponse {
             validator_set: STAKE_INFO.load(deps.storage)?.validators,
         }),
         LastReinvest {} => unimplemented!(),
-        Supply {} => to_binary(&query::supply(deps)?),
-        ExchangeRate {} => to_binary(&query::exchange_rate(deps, env)?),
-        TargetValue {} => to_binary(&query::target_value(deps, env)?),
+        Supply {} => to_json_binary(&query::supply(deps)?),
+        ExchangeRate {} => to_json_binary(&query::exchange_rate(deps, env)?),
+        TargetValue {} => to_json_binary(&query::target_value(deps, env)?),
     }
 }
 
@@ -778,7 +794,7 @@ pub mod query {
             epoch_period: config.epoch_period,
             unbond_period: config.unbond_period,
         };
-        to_binary(&resp)
+        to_json_binary(&resp)
     }
 
     pub fn exchange_rate(deps: Deps, env: Env) -> StdResult<ExchangeRateResponse> {
@@ -876,7 +892,7 @@ mod tests {
     use cosmwasm_std::{
         coins,
         testing::{mock_env, mock_info, MockApi, MockStorage},
-        to_binary, Addr, Binary, CosmosMsg, Decimal, DepsMut, Empty, Event, OwnedDeps,
+        to_json_binary, Addr, Binary, CosmosMsg, Decimal, DepsMut, Empty, Event, OwnedDeps,
         QuerierWrapper, Reply, ReplyOn, Response, StdError, SubMsg, SubMsgResponse, SubMsgResult,
         Uint128, Validator, WasmMsg,
     };
@@ -904,7 +920,7 @@ mod tests {
             .query_balance(&addr, TOKEN)
             .unwrap();
         funds.amount += Uint128::new(amount);
-        querier.base.update_balance(&addr, vec![funds]);
+        querier.base.bank.update_balance(&addr, vec![funds]);
     }
 
     // this does a proper deposit of x coins, adjusting the balance of the contract
@@ -922,13 +938,13 @@ mod tests {
     }
 
     fn register_validator(querier: &mut WasmMockQuerier, validator: &str) {
-        let val = Validator {
-            address: validator.to_string(),
-            commission: Decimal::percent(7),
-            max_commission: Decimal::percent(20),
-            max_change_rate: Decimal::percent(5),
-        };
-        querier.base.update_staking(TOKEN, &[val], &[]);
+        let val = Validator::new(
+            validator.to_string(),
+            Decimal::percent(7),
+            Decimal::percent(20),
+            Decimal::percent(5),
+        );
+        querier.base.staking.update(TOKEN, &[val], &[]);
     }
 
     fn init(deps: DepsMut, owner: &str) -> Response {
@@ -998,7 +1014,7 @@ mod tests {
             vec![SubMsg {
                 msg: WasmMsg::Instantiate {
                     code_id: 0u64,
-                    msg: to_binary(&Cw20InstantiateMsg {
+                    msg: to_json_binary(&Cw20InstantiateMsg {
                         mint: Some(MinterResponse {
                             minter: "cosmos2contract".to_string(),
                             cap: None,
@@ -1017,7 +1033,8 @@ mod tests {
                 .into(),
                 id: 1,
                 gas_limit: None,
-                reply_on: ReplyOn::Success
+                reply_on: ReplyOn::Success,
+                payload: Binary::new(vec![])
             },]
         );
     }
@@ -1030,11 +1047,14 @@ mod tests {
         let response = SubMsgResponse {
             data: Some(Binary::from_base64("MTIzCg==").unwrap()),
             events: vec![Event::new("wasm").add_attribute("fo", "ba")],
+            msg_responses: vec![],
         };
         let result: SubMsgResult = SubMsgResult::Ok(response);
         let reply_msg = Reply {
             id: 1,
             result: result.clone(),
+            gas_used: 0,
+            payload: Binary::new(vec![]),
         };
         let err = reply(deps.as_mut(), env.clone(), reply_msg).unwrap_err();
         //  Verify the error failed to parse data for the message type
@@ -1046,7 +1066,12 @@ mod tests {
         );
 
         // Try again with an invalid ID
-        let reply_msg = Reply { id: 999, result };
+        let reply_msg = Reply {
+            id: 999,
+            result,
+            gas_used: 0,
+            payload: Binary::new(vec![]),
+        };
         let err = reply(deps.as_mut(), env, reply_msg).unwrap_err();
         //  Verify the error is invalid reply id
         assert_eq!(
@@ -1179,7 +1204,7 @@ mod tests {
             res.messages[0].msg,
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "".to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::Burn {
+                msg: to_json_binary(&Cw20ExecuteMsg::Burn {
                     amount: 100u128.into()
                 })
                 .unwrap(),

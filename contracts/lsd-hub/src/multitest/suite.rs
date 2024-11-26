@@ -7,8 +7,8 @@ use crate::{
 };
 use anyhow::Result as AnyResult;
 use cosmwasm_std::{
-    coins, to_binary, Addr, Coin, ContractInfoResponse, Decimal, Delegation, Empty, FullDelegation,
-    MemoryStorage, StdResult, Storage, Uint128, Validator,
+    coins, to_json_binary, Addr, Coin, ContractInfoResponse, Decimal, Delegation, Empty,
+    FullDelegation, MemoryStorage, StdResult, Storage, Uint128, Validator,
 };
 use cw20::{BalanceResponse, Cw20Coin, Cw20QueryMsg};
 use cw20_base::msg::InstantiateMsg as Cw20InstantiateMsg;
@@ -114,21 +114,22 @@ impl SuiteBuilder {
         let mut app: App = App::default();
         let admin = Addr::unchecked("admin");
         // add validators
-        let valopers = self.validators.iter().map(|(validator, _)| Validator {
-            address: validator.clone(),
-            commission: self.validator_commission,
-            max_commission: Decimal::percent(100),
-            max_change_rate: Decimal::percent(1),
+        let valopers = self.validators.iter().map(|(validator, _)| {
+            Validator::new(
+                validator.clone(),
+                self.validator_commission,
+                Decimal::percent(100),
+                Decimal::percent(1),
+            )
         });
-        let valopers_registered = self
-            .registered_validators
-            .iter()
-            .map(|validator| Validator {
-                address: validator.clone(),
-                commission: self.validator_commission,
-                max_commission: Decimal::percent(100),
-                max_change_rate: Decimal::percent(1),
-            });
+        let valopers_registered = self.registered_validators.iter().map(|validator| {
+            Validator::new(
+                validator.clone(),
+                self.validator_commission,
+                Decimal::percent(100),
+                Decimal::percent(1),
+            )
+        });
 
         let staking_info = StakingInfo {
             bonded_denom: "FUN".to_string(),
@@ -284,7 +285,7 @@ impl Suite {
         token_contract: &Addr,
         balance: u128,
     ) -> AnyResult<AppResponse> {
-        let msg = to_binary(&ReceiveMsg::Unbond {})?;
+        let msg = to_json_binary(&ReceiveMsg::Unbond {})?;
 
         self.app.execute_contract(
             Addr::unchecked(sender),
@@ -365,7 +366,7 @@ impl Suite {
     pub fn query_contract_admin(&self, contract: &Addr) -> AnyResult<String> {
         let contract_info: ContractInfoResponse =
             self.app.wrap().query_wasm_contract_info(contract)?;
-        Ok(contract_info.admin.unwrap_or_default())
+        Ok(contract_info.admin.map(Into::into).unwrap_or_default())
     }
 
     pub fn query_exchange_rate(&self) -> AnyResult<Decimal> {
@@ -412,11 +413,8 @@ impl Suite {
     }
 
     /// Processes the native unbonding queue
-    pub fn process_native_unbonding(&mut self) {
-        self.app
-            .sudo(SudoMsg::Staking(StakingSudo::ProcessQueue {}))
-            .unwrap();
-    }
+    /// This is done while updating the block
+    pub fn process_native_unbonding(&mut self) {}
 
     pub fn query_validator_set(&self) -> AnyResult<Vec<(String, Decimal)>> {
         let vals: ValidatorSetResponse = self
